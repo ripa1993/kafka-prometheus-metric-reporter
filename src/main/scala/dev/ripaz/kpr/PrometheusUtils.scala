@@ -24,6 +24,16 @@ object PrometheusUtils {
     }
   }
 
+  def metricNameStringExtended(metric: KafkaMetric): String = {
+    val base = metric.metricName().group() + "_" + metric.metricName().name()
+
+    if (metric.metricName().tags().size() > 0){
+      sanitize(base + "_" + metricLabelsName(metric).mkString("_") + "_" + metricLabelsValue(metric).mkString("_"))
+    } else {
+      sanitize(base)
+    }
+  }
+
   def metricLabelsValue(metric: KafkaMetric): Array[String] = {
     metric.metricName().tags().asScala.values.toArray
   }

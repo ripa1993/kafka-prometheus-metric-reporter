@@ -23,7 +23,7 @@ class PrometheusReporter extends MetricsReporter with LazyLogging {
   implicit val executionContext: ExecutionContext = system.dispatcher
 
   var prometheusGauges: Map[String, Gauge] = Map()
-  var metrics: mutable.Map[String, KafkaMetric] = mutable.Map()
+  var kafkaMetrics: mutable.Map[String, KafkaMetric] = mutable.Map()
 
   var reporterPort: Int = 8080
   var reporterInterface: String = "0.0.0.0"
@@ -62,6 +62,7 @@ class PrometheusReporter extends MetricsReporter with LazyLogging {
   override def metricChange(metric: KafkaMetric): Unit = {
     logger.info("Changed: " + metric.metricName() + " value: " + metric.metricValue())
 
+    // Drop non-numeric metrics
     if (metric.metricName().group() == "app-info"){
       return
     }
@@ -78,6 +79,7 @@ class PrometheusReporter extends MetricsReporter with LazyLogging {
 
   override def metricRemoval(metric: KafkaMetric): Unit = {
     logger.info("Deleted: " + metric.metricName())
+    kafkaMetrics.remove(PrometheusUtils.metricNameStringExtended(metric))
   }
 
   override def close(): Unit = {}
@@ -90,12 +92,14 @@ class PrometheusReporter extends MetricsReporter with LazyLogging {
   }
 
   private def isMetricRegistered(metric: KafkaMetric): Boolean = {
-    prometheusGauges.contains(PrometheusUtils.metricNameString(metric)) && metrics.contains(PrometheusUtils.metricNameString(metric))
+    prometheusGauges.contains(PrometheusUtils.metricNameString(metric)) && kafkaMetrics.contains(PrometheusUtils.metricNameStringExtended(metric))
   }
 
   private def registerMetric(metric: KafkaMetric): Unit = {
-    metrics(PrometheusUtils.metricNameString(metric)) = metric
-    prometheusGauges ++= Map(PrometheusUtils.metricNameString(metric) -> PrometheusUtils.gaugeFromKafkaMetric(metric))
+    kafkaMetrics(PrometheusUtils.metricNameStringExtended(metric)) = metric
+    if(!prometheusGauges.contains(PrometheusUtils.metricNameString(metric))){
+      prometheusGauges ++= Map(PrometheusUtils.metricNameString(metric) -> PrometheusUtils.gaugeFromKafkaMetric(metric))
+    }
   }
 
   private def refreshMetricValue(metric: KafkaMetric): Unit = {
@@ -110,7 +114,7 @@ class PrometheusReporter extends MetricsReporter with LazyLogging {
   }
 
   private def refreshAndServe: PrometheusMetricsOutput = {
-    metrics.values.foreach(refreshMetricValue)
+    kafkaMetrics.values.foreach(refreshMetricValue)
     PrometheusMetricsOutput(CollectorRegistry.defaultRegistry.metricFamilySamples())
   }
 
