@@ -6,21 +6,7 @@ import java.util.Collections
 import io.prometheus.client.Collector
 import io.prometheus.client.Collector.MetricFamilySamples
 
-/**
-  * SampleBuilder defines the action of creating a {@link io.prometheus.client.Collector.MetricFamilySamples.Sample} for the given parameters.
-  */
 trait SampleBuilder {
-
-  /**
-    * Creates a new {@link io.prometheus.client.Collector.MetricFamilySamples.Sample} for the given parameters.
-    *
-    * @param dropwizardName        Metric name coming from Dropwizard.
-    * @param nameSuffix            Optional suffix to add.
-    * @param additionalLabelNames  Optional additional label names. Needs to have same size as additionalLabelValues.
-    * @param additionalLabelValues Optional additional label values. Needs to have same size as additionalLabelNames.
-    * @param value                 Metric value
-    * @return A new { @link io.prometheus.client.Collector.MetricFamilySamples.Sample}.
-    */
   def createSample(
       dropwizardName: String,
       nameSuffix: String,
