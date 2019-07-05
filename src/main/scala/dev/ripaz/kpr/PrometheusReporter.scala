@@ -29,9 +29,8 @@ class PrometheusReporter extends MetricsReporter with LazyLogging {
   var reporterPort: Int = 8080
   var reporterInterface: String = "0.0.0.0"
 
-
-  override def init(kafkaMetrics: util.List[KafkaMetric]): Unit = {
-    this.synchronized{
+  override def init(kafkaMetrics: util.List[KafkaMetric]): Unit =
+    this.synchronized {
       logger.info("Initializing Prometheus metric reporter.")
 
       // Initialize metrics
@@ -40,8 +39,8 @@ class PrometheusReporter extends MetricsReporter with LazyLogging {
 
       // Start server
 
-      val routes: Route = path("metrics"){
-        get{
+      val routes: Route = path("metrics") {
+        get {
           complete(refreshAndServe)
         }
       }
@@ -59,39 +58,35 @@ class PrometheusReporter extends MetricsReporter with LazyLogging {
 
       logger.info("Successfully initialized Prometheus metric reporter.")
     }
-  }
 
-  override def metricChange(metric: KafkaMetric): Unit = {
-    this.synchronized{
+  override def metricChange(metric: KafkaMetric): Unit =
+    this.synchronized {
       logger.debug("Changed: " + metric.metricName() + " value: " + metric.metricValue())
 
       // Drop non-numeric metrics
-      if (metric.metricName().group() == "app-info"){
+      if (metric.metricName().group() == "app-info") {
         return
       }
 
-      if(!isMetricRegistered(metric)){
+      if (!isMetricRegistered(metric)) {
         registerMetric(metric)
       }
 
-
       prometheusGauges(PrometheusUtils.metricNameString(metric))
-        .labels(PrometheusUtils.metricLabelsValue(metric):_*)
+        .labels(PrometheusUtils.metricLabelsValue(metric): _*)
         .set(metric.metricValue().asInstanceOf[java.lang.Double])
     }
-  }
 
-  override def metricRemoval(metric: KafkaMetric): Unit = {
-    this.synchronized{
+  override def metricRemoval(metric: KafkaMetric): Unit =
+    this.synchronized {
       logger.debug("Deleted: " + metric.metricName())
       kafkaMetrics.remove(PrometheusUtils.metricNameStringExtended(metric))
     }
-  }
 
   override def close(): Unit = {}
 
-  override def configure(configs: util.Map[String, _]): Unit = {
-    this.synchronized{
+  override def configure(configs: util.Map[String, _]): Unit =
+    this.synchronized {
       val conf = configs.asScala
 
       reporterPort = conf.getOrElse(Constants.PROMETHEUS_REPORTER_PORT, reporterPort).asInstanceOf[Int]
@@ -99,37 +94,32 @@ class PrometheusReporter extends MetricsReporter with LazyLogging {
 
       CollectorRegistry.defaultRegistry.register(new YammerExports(Metrics.defaultRegistry()))
     }
-  }
 
-  private def isMetricRegistered(metric: KafkaMetric): Boolean = {
+  private def isMetricRegistered(metric: KafkaMetric): Boolean =
     prometheusGauges.contains(PrometheusUtils.metricNameString(metric)) && kafkaMetrics.contains(PrometheusUtils.metricNameStringExtended(metric))
-  }
 
   private def registerMetric(metric: KafkaMetric): Unit = {
     kafkaMetrics(PrometheusUtils.metricNameStringExtended(metric)) = metric
-    if(!prometheusGauges.contains(PrometheusUtils.metricNameString(metric))){
+    if (!prometheusGauges.contains(PrometheusUtils.metricNameString(metric))) {
       prometheusGauges ++= Map(PrometheusUtils.metricNameString(metric) -> PrometheusUtils.gaugeFromKafkaMetric(metric))
     }
   }
 
-  private def refreshMetricValue(metric: KafkaMetric): Unit = {
+  private def refreshMetricValue(metric: KafkaMetric): Unit =
     try {
       prometheusGauges(PrometheusUtils.metricNameString(metric))
-        .labels(PrometheusUtils.metricLabelsValue(metric):_*)
+        .labels(PrometheusUtils.metricLabelsValue(metric): _*)
         .set(metric.metricValue().toString.toDouble)
     } catch {
-      case e: Throwable => logger.error(s"Cannot update value ${metric.metricValue()} for ${metric.metricName()}",  e)
+      case e: Throwable => logger.error(s"Cannot update value ${metric.metricValue()} for ${metric.metricName()}", e)
     }
 
-  }
-
-  private def refreshAndServe: PrometheusMetricsOutput = {
-    this.synchronized{
+  private def refreshAndServe: PrometheusMetricsOutput =
+    this.synchronized {
       logger.debug("Refreshing metrics...")
       kafkaMetrics.values.foreach(refreshMetricValue)
       logger.debug("Refreshed")
       PrometheusMetricsOutput(CollectorRegistry.defaultRegistry.metricFamilySamples())
     }
-  }
 
 }
