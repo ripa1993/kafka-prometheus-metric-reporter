@@ -8,6 +8,7 @@ import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.stream.ActorMaterializer
 import com.typesafe.scalalogging.LazyLogging
+import com.yammer.metrics.Metrics
 import io.prometheus.client.{CollectorRegistry, Gauge}
 import org.apache.kafka.common.metrics.{KafkaMetric, MetricsReporter}
 
@@ -95,6 +96,8 @@ class PrometheusReporter extends MetricsReporter with LazyLogging {
 
       reporterPort = conf.getOrElse(Constants.PROMETHEUS_REPORTER_PORT, reporterPort).asInstanceOf[Int]
       reporterInterface = conf.getOrElse(Constants.PROMETHEUS_REPORTER_INTERFACE, reporterInterface).asInstanceOf[String]
+
+      CollectorRegistry.defaultRegistry.register(new YammerExports(Metrics.defaultRegistry()))
     }
   }
 
