@@ -1,4 +1,4 @@
-package dev.ripaz.kpr
+package dev.ripaz.kpr.yammer
 
 import java.util
 import java.util.concurrent.TimeUnit
@@ -12,9 +12,9 @@ import io.prometheus.client.Collector.{MetricFamilySamples, Type}
 import scala.collection.JavaConverters._
 
 class YammerExports(val registry: MetricsRegistry) extends Collector with Collector.Describable with LazyLogging {
-  private var sampleBuilder: SampleBuilder = new DefaultSampleBuilder
+  private val sampleBuilder: SampleBuilder = new DefaultSampleBuilder
 
-  private[kpr] def fromCounter(metricName: MetricName, counter: Counter) = {
+  private[kpr] def fromCounter(metricName: MetricName, counter: Counter): MetricFamilySamples = {
     val sample = sampleBuilder.createSample(
       makeMetricName(metricName),
       "",
@@ -51,10 +51,21 @@ class YammerExports(val registry: MetricsRegistry) extends Collector with Collec
     new Collector.MetricFamilySamples(sample.name, Type.GAUGE, getHelpMessage(metricName.getName, gauge), util.Arrays.asList(sample))
   }
 
-  private[kpr] def fromSnapshotAndCount(metricName: MetricName, snapshot: Snapshot, count: Long, factor: Double, helpMessage: String) = {
+  private[kpr] def fromSnapshotAndCount(
+      metricName: MetricName,
+      snapshot: Snapshot,
+      count: Long,
+      factor: Double,
+      helpMessage: String
+  ): MetricFamilySamples = {
     val samples = util.Arrays.asList(
-      sampleBuilder
-        .createSample(makeMetricName(metricName), "", util.Arrays.asList("quantile"), util.Arrays.asList("0.5"), snapshot.getMedian * factor),
+      sampleBuilder.createSample(
+        makeMetricName(metricName),
+        "",
+        (List("quantile") ++ makeLabelNames(metricName)).asJava,
+        (List("0.50") ++ makeLabelValues(metricName)).asJava,
+        snapshot.getMedian * factor
+      ),
       sampleBuilder.createSample(
         makeMetricName(metricName),
         "",
@@ -95,13 +106,13 @@ class YammerExports(val registry: MetricsRegistry) extends Collector with Collec
     new Collector.MetricFamilySamples(samples.get(0).name, Type.SUMMARY, helpMessage, samples)
   }
 
-  private[kpr] def fromHistogram(metricName: MetricName, histogram: Histogram) =
+  private[kpr] def fromHistogram(metricName: MetricName, histogram: Histogram): MetricFamilySamples =
     fromSnapshotAndCount(metricName, histogram.getSnapshot, histogram.count(), 1.0, getHelpMessage(metricName.getName, histogram))
 
-  private[kpr] def fromTimer(metricName: MetricName, timer: Timer) =
+  private[kpr] def fromTimer(metricName: MetricName, timer: Timer): MetricFamilySamples =
     fromSnapshotAndCount(metricName, timer.getSnapshot, timer.count(), 1.0d / TimeUnit.SECONDS.toNanos(1L), getHelpMessage(metricName.getName, timer))
 
-  private[kpr] def fromMeter(metricName: MetricName, meter: Meter) = {
+  private[kpr] def fromMeter(metricName: MetricName, meter: Meter): MetricFamilySamples = {
     val sample = sampleBuilder.createSample(
       makeMetricName(metricName),
       "_total",

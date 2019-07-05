@@ -9,13 +9,14 @@ import akka.http.scaladsl.server.Route
 import akka.stream.ActorMaterializer
 import com.typesafe.scalalogging.LazyLogging
 import com.yammer.metrics.Metrics
+import dev.ripaz.kpr.yammer.YammerExports
 import io.prometheus.client.{CollectorRegistry, Gauge}
 import org.apache.kafka.common.metrics.{KafkaMetric, MetricsReporter}
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 class PrometheusReporter extends MetricsReporter with LazyLogging {
 
@@ -29,32 +30,31 @@ class PrometheusReporter extends MetricsReporter with LazyLogging {
   var reporterPort: Int = 8080
   var reporterInterface: String = "0.0.0.0"
 
+  private val routes: Route = path("metrics") {
+    get {
+      complete(refreshAndServe)
+    }
+  }
+
+  private def serverOnComplete(binding: Try[Http.ServerBinding]) = binding match {
+    case Success(bound) =>
+      println(s"Server online at http://${bound.localAddress.getHostString}:${bound.localAddress.getPort}/")
+    case Failure(e) =>
+      Console.err.println(s"Server could not start!")
+      e.printStackTrace()
+      system.terminate()
+  }
+
   override def init(kafkaMetrics: util.List[KafkaMetric]): Unit =
     this.synchronized {
       logger.info("Initializing Prometheus metric reporter.")
 
       // Initialize metrics
-
+      CollectorRegistry.defaultRegistry.register(new YammerExports(Metrics.defaultRegistry()))
       kafkaMetrics.asScala.foreach(metricChange)
 
       // Start server
-
-      val routes: Route = path("metrics") {
-        get {
-          complete(refreshAndServe)
-        }
-      }
-
-      val serverBinding: Future[Http.ServerBinding] = Http().bindAndHandle(routes, reporterInterface, reporterPort)
-
-      serverBinding.onComplete {
-        case Success(bound) =>
-          println(s"Server online at http://${bound.localAddress.getHostString}:${bound.localAddress.getPort}/")
-        case Failure(e) =>
-          Console.err.println(s"Server could not start!")
-          e.printStackTrace()
-          system.terminate()
-      }
+      Http().bindAndHandle(routes, reporterInterface, reporterPort).onComplete(serverOnComplete)
 
       logger.info("Successfully initialized Prometheus metric reporter.")
     }
@@ -72,7 +72,7 @@ class PrometheusReporter extends MetricsReporter with LazyLogging {
         registerMetric(metric)
       }
 
-      prometheusGauges(PrometheusUtils.metricNameString(metric))
+      prometheusGauges(PrometheusUtils.formatMetricName(metric))
         .labels(PrometheusUtils.metricLabelsValue(metric): _*)
         .set(metric.metricValue().asInstanceOf[java.lang.Double])
     }
@@ -80,7 +80,7 @@ class PrometheusReporter extends MetricsReporter with LazyLogging {
   override def metricRemoval(metric: KafkaMetric): Unit =
     this.synchronized {
       logger.debug("Deleted: " + metric.metricName())
-      kafkaMetrics.remove(PrometheusUtils.metricNameStringExtended(metric))
+      kafkaMetrics.remove(PrometheusUtils.formatMetricNameWithLabels(metric))
     }
 
   override def close(): Unit = {}
@@ -91,23 +91,21 @@ class PrometheusReporter extends MetricsReporter with LazyLogging {
 
       reporterPort = conf.getOrElse(Constants.PROMETHEUS_REPORTER_PORT, reporterPort).asInstanceOf[Int]
       reporterInterface = conf.getOrElse(Constants.PROMETHEUS_REPORTER_INTERFACE, reporterInterface).asInstanceOf[String]
-
-      CollectorRegistry.defaultRegistry.register(new YammerExports(Metrics.defaultRegistry()))
     }
 
   private def isMetricRegistered(metric: KafkaMetric): Boolean =
-    prometheusGauges.contains(PrometheusUtils.metricNameString(metric)) && kafkaMetrics.contains(PrometheusUtils.metricNameStringExtended(metric))
+    prometheusGauges.contains(PrometheusUtils.formatMetricName(metric)) && kafkaMetrics.contains(PrometheusUtils.formatMetricNameWithLabels(metric))
 
   private def registerMetric(metric: KafkaMetric): Unit = {
-    kafkaMetrics(PrometheusUtils.metricNameStringExtended(metric)) = metric
-    if (!prometheusGauges.contains(PrometheusUtils.metricNameString(metric))) {
-      prometheusGauges ++= Map(PrometheusUtils.metricNameString(metric) -> PrometheusUtils.gaugeFromKafkaMetric(metric))
+    kafkaMetrics(PrometheusUtils.formatMetricNameWithLabels(metric)) = metric
+    if (!prometheusGauges.contains(PrometheusUtils.formatMetricName(metric))) {
+      prometheusGauges ++= Map(PrometheusUtils.formatMetricName(metric) -> PrometheusUtils.registerGauge(metric))
     }
   }
 
   private def refreshMetricValue(metric: KafkaMetric): Unit =
     try {
-      prometheusGauges(PrometheusUtils.metricNameString(metric))
+      prometheusGauges(PrometheusUtils.formatMetricName(metric))
         .labels(PrometheusUtils.metricLabelsValue(metric): _*)
         .set(metric.metricValue().toString.toDouble)
     } catch {

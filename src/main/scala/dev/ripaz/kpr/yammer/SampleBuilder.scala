@@ -1,4 +1,4 @@
-package dev.ripaz.kpr
+package dev.ripaz.kpr.yammer
 
 import java.util
 import java.util.Collections

@@ -1,53 +1,50 @@
 package dev.ripaz.kpr
 
-import io.prometheus.client.Gauge
+import io.prometheus.client.{Collector, Gauge}
 import org.apache.kafka.common.metrics.KafkaMetric
 
 import scala.collection.JavaConverters._
 
 object PrometheusUtils {
-  def gaugeFromKafkaMetric(metric: KafkaMetric): Gauge =
+  def registerGauge(metric: KafkaMetric): Gauge =
     Gauge
       .build()
-      .name(metricNameString(metric))
-      .help(helpOrDummy(metric.metricName().description()))
+      .name(formatMetricName(metric))
+      .help(helpOrDefault(metric.metricName().description()))
       .labelNames(metricLabelsName(metric): _*)
       .register()
 
-  def metricNameString(metric: KafkaMetric): String = {
+  def formatMetricName(metric: KafkaMetric): String = {
     val base = metric.metricName().group() + "_" + metric.metricName().name()
 
     if (metric.metricName().tags().size() > 0) {
-      sanitize(base + "_" + metricLabelsName(metric).mkString("_"))
+      Collector.sanitizeMetricName(base + "_" + metricLabelsName(metric).mkString("_"))
     } else {
-      sanitize(base)
+      Collector.sanitizeMetricName(base)
     }
   }
 
-  def metricNameStringExtended(metric: KafkaMetric): String = {
+  def formatMetricNameWithLabels(metric: KafkaMetric): String = {
     val base = metric.metricName().group() + "_" + metric.metricName().name()
 
     if (metric.metricName().tags().size() > 0) {
-      sanitize(base + "_" + metricLabelsName(metric).mkString("_") + "_" + metricLabelsValue(metric).mkString("_"))
+      Collector.sanitizeMetricName(base + "_" + metricLabelsName(metric).mkString("_") + "_" + metricLabelsValue(metric).mkString("_"))
     } else {
-      sanitize(base)
+      Collector.sanitizeMetricName(base)
     }
   }
-
-  def metricLabelsValue(metric: KafkaMetric): Array[String] =
-    metric.metricName().tags().asScala.values.toArray
 
   def metricLabelsName(metric: KafkaMetric): Array[String] =
     metric.metricName().tags().asScala.keys.map(x => x.replace("-", "_")).toArray
 
-  def helpOrDummy(help: String): String =
+  def metricLabelsValue(metric: KafkaMetric): Array[String] =
+    metric.metricName().tags().asScala.values.toArray
+
+  def helpOrDefault(help: String): String =
     if (help.length == 0) {
       "N/A"
     } else {
       help
     }
-
-  def sanitize(input: String): String =
-    input.replace("-", "_")
 
 }
