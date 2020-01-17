@@ -10,6 +10,7 @@ import akka.stream.ActorMaterializer
 import com.github.ripa1993.kafkaprometheusreporter.yammer.YammerExports
 import com.typesafe.scalalogging.LazyLogging
 import com.yammer.metrics.Metrics
+import io.prometheus.client.hotspot.DefaultExports
 import io.prometheus.client.{CollectorRegistry, Gauge}
 import org.apache.kafka.common.metrics.{KafkaMetric, MetricsReporter}
 
@@ -50,6 +51,7 @@ class PrometheusReporter extends MetricsReporter with LazyLogging {
       logger.info("Initializing Prometheus metric reporter.")
 
       // Initialize metrics
+      DefaultExports.initialize()
       CollectorRegistry.defaultRegistry.register(new YammerExports(Metrics.defaultRegistry()))
       kafkaMetrics.asScala.foreach(metricChange)
 
