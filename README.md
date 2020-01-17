@@ -7,3 +7,11 @@ Copy `target/scala-2.12/kafka-prometheus-reporter-assembly-0.1.jar` to Kafka cla
 Add `metric.reporters=com.github.ripa1993.kafkaprometheusreporter.PrometheusReporter` in `server.properties`
 
 Open `{BROKER}:8080/metrics`
+
+## Test it
+
+```bash
+cd docker
+docker-compose up -d
+curl localhost:8080/metrics
+```
