@@ -1,4 +1,4 @@
-package dev.ripaz.kpr
+package com.github.ripa1993.kafkaprometheusreporter
 
 import java.io.{StringWriter, Writer}
 import java.util

@@ -1,4 +1,4 @@
-package dev.ripaz.kpr.yammer
+package com.github.ripa1993.kafkaprometheusreporter.yammer
 
 import java.util
 import java.util.Collections

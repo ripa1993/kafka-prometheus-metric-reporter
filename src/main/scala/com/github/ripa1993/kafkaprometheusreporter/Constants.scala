@@ -1,4 +1,4 @@
-package dev.ripaz.kpr
+package com.github.ripa1993.kafkaprometheusreporter
 
 object Constants {
   val PROMETHEUS_REPORTER_PORT = "prometheus.reporter.port"
