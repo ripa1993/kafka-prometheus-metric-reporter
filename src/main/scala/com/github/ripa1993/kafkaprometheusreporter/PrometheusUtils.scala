@@ -1,4 +1,4 @@
-package dev.ripaz.kpr
+package com.github.ripa1993.kafkaprometheusreporter
 
 import io.prometheus.client.{Collector, Gauge}
 import org.apache.kafka.common.metrics.KafkaMetric

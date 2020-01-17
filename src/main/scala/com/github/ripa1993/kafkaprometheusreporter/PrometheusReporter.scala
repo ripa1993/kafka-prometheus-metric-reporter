@@ -1,4 +1,4 @@
-package dev.ripaz.kpr
+package com.github.ripa1993.kafkaprometheusreporter
 
 import java.util
 
@@ -7,9 +7,9 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.stream.ActorMaterializer
+import com.github.ripa1993.kafkaprometheusreporter.yammer.YammerExports
 import com.typesafe.scalalogging.LazyLogging
 import com.yammer.metrics.Metrics
-import dev.ripaz.kpr.yammer.YammerExports
 import io.prometheus.client.{CollectorRegistry, Gauge}
 import org.apache.kafka.common.metrics.{KafkaMetric, MetricsReporter}
 
